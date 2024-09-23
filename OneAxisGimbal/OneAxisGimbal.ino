@@ -3,11 +3,10 @@
 
 
 Servo servo; //creates a servo object
-int loop_interval_length = 100; //in ms
+int loop_interval_length = 200; //in ms
 double aX, aY, aZ;
-double rollRate, pitchRate;
-double x_horizontal_angle, pitchAngle;
-int offset_degrees = 180;  //0 the horizontal, 90 is upward
+double angle_from_x_horizontal, pitchAngle, yawAngle = 0;
+int offset_degrees = 90;  //0 the horizontal, 90 is upward
 
 
 void initialize_mpu6050(){
@@ -46,7 +45,7 @@ explanation for line above:
 highByte <<8    -   shifts the bits of HighByte 8 positions to the left, into the higher end of the 16 bit number
 | lowByte       -   merges the high byte with the low byte into a single 16 bit number
 overall result of the code: a single 16bit integer measurement from one axis of either the accelerometer or gyroscope
-
+\kf\Sdfaf1f3b82254a688d67f5f56e528d95N.jpg_80x80.jpg_.webp
 the int16_t value we store is the data collected with the units of Least Significant Bit. We must convert it to g or degrees
 acceleration = acccelData/8192
 gyro = gyroData/65.5
@@ -71,59 +70,86 @@ void read_mpu6050(){
   int16_t gy_y = (Wire.read() << 8 | Wire.read());
   int16_t gy_z = (Wire.read() << 8 | Wire.read());
 
-  //Convert from acceleration and gyro values of LSB to m/s^2 = g or deg/s+
+  //Convert from accelerometer and gyro values of LSB to m/s^2 = g or deg/s+
   aX = accLSB_x/16374.0 - 0.05; //adjusted values during calibration to all equal 1 when flat on its plane
   aY = accLSB_y/16374.0  + 0.01;
   aZ = accLSB_z/16374.0  + 0.13;
   
-  rollRate = gy_x/131.0;
-  pitchRate = gy_y/131.0;
-  //yawRate = gy_z/65.5;
+  double rollRate = gy_x/131.0;
+  double pitchRate = gy_y/131.0;
+  double yawRate = gy_z/131.0;
 
   //Calculate Roll and Pitch Angle in radians
-  x_horizontal_angle = atan(aY/sqrt(aX*aX+aZ*aZ));
+  angle_from_x_horizontal = atan(aY/sqrt(aX*aX+aZ*aZ)); //aka roll angle
   pitchAngle = -atan(aX/sqrt(aY*aY + aZ*aZ));
 
   //Convert Roll & Pitch Angle to degrees
-  x_horizontal_angle *= 180/3.1415;
+  angle_from_x_horizontal *= 180/3.1415;
   pitchAngle *= 180/3.1415;
 
+  //calculate yawAngle in degrees
+  // yawAngle += yawRate * loop_interval_length / 1000;
 
 
-  // //print out aX, aY, aZ to check for calibration
-  // Serial.print("aX = ");
-  // Serial.print(aX);
-  // Serial.print(" | aY = ");
-  // Serial.print(aY);
-  // Serial.print(" | aZ = ");
-  // Serial.println(aZ);
+
+  //print out aX, aY, aZ to check for calibration
+  Serial.println("--------------------------------------------------");
+  Serial.print("Acceleration: X = ");
+  Serial.print(aX);
+  Serial.print(" | Y = ");
+  Serial.print(aY);
+  Serial.print(" | Z = ");
+  Serial.println(aZ);
+
+  // print_position();
   
-  // //convert to servo degrees, from 0 to 180
-  // x_horizontal_angle += 90; 
-  // pitchAngle += 90;
+
 
   //print out Pitch and Roll Angle
   Serial.print("X Angle: "); //left and right
-  Serial.print(x_horizontal_angle);
+  Serial.print(angle_from_x_horizontal);
   Serial.print(" | Y Angle = "); //into and out of the page
   Serial.println(pitchAngle);
+  // Serial.print(" | Z Angle = "); //up and down
+  // Serial.println(yawAngle);
 
 }
 
-void adjust_motor(){
-  double servo_angle;
+// void print_position(){
+//   static double velX = 0, velY = 0, velZ = 0, posX = 0, posY = 0, posZ = 0;
+//   velX += (aX *9.81) * (loop_interval_length/1000.0); //velocity = acceleration * time interval + C
+//   velY += (aY *9.81) * (loop_interval_length/1000.0);
+//   velZ += (aZ *9.81) * (loop_interval_length/1000);
+
+//   posX += velX * (loop_interval_length/1000.0); //position = velocity*time interval + C
+//   posY += velY * (loop_interval_length/1000.0);
+//   posZ += velZ * (loop_interval_length/1000.0);
+
+//   Serial.print("Position: X = ");
+//   Serial.print(posX);
+//   Serial.print("  |  Y =  ");
+//   Serial.print(posY);
+//   Serial.print("  | Z  ");
+//   Serial.println(posZ);
+
+// }
+
+void adjust_motor(){ 
+  double mpu_angle;
   if(aX < 0 && aY > 0) { 
-    servo_angle = offset_degrees - x_horizontal_angle + 180;
+    mpu_angle = offset_degrees - angle_from_x_horizontal + 180;
   } else if (aX < 0 && aY < 0) { 
-    servo_angle = 180 - offset_degrees - x_horizontal_angle;
+    mpu_angle = 180 - offset_degrees - angle_from_x_horizontal;
   } else {
-    servo_angle  = offset_degrees + x_horizontal_angle;
+    mpu_angle  = offset_degrees + angle_from_x_horizontal;
   }
 
-  Serial.print("Servo Angle = ");
-  Serial.println(servo_angle);
+  Serial.print("MPU Angle = "); 
+  Serial.println(angle_from_x_horizontal + 90);
+  // Serial.print("  |  MPU Angle in Relation to Offset = "); 
+  // Serial.println( offset_degrees - mpu_angle);
   
-  servo.write(servo_angle); //centers @ 0 degrees pointing up
+  servo.write(mpu_angle); //centers @ 0 degrees pointing up
 }
 
 void check_offset(){
