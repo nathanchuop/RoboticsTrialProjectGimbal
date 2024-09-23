@@ -4,8 +4,10 @@
 
 Servo servo; //creates a servo object
 int loop_interval_length = 100; //in ms
+double aX, aY, aZ;
 double rollRate, pitchRate;
-double rollAngle, pitchAngle;
+double x_horizontal_angle, pitchAngle;
+int offset_degrees = 180;  //0 the horizontal, 90 is upward
 
 
 void initialize_mpu6050(){
@@ -18,13 +20,13 @@ void initialize_mpu6050(){
   //Select sensitivity of Accelerometer (measure linear movement/position on a 3d axis)
   Wire.beginTransmission(0x68); 
   Wire.write(0x1C); //accelerometer configuration register
-  Wire.write(0x10); //selects sensitivity of accelerometer (+-4g = 8192 LSB/g)
+  Wire.write(0x00); //selects sensitivity of accelerometer (+-2g = 16374 LSB/g)
   Wire.endTransmission();
 
   //Select sensitivity of Gyroscope (measures angular velocity around an axis)
   Wire.beginTransmission(0x68); 
   Wire.write(0x1B); //gyroscope configuration register
-  Wire.write(0x08); //selects sensitivity of gyroscope (500 deg/s = 65.5 LSB/deg/s)
+  Wire.write(0x00); //selects sensitivity of gyroscope (250 deg/s = 131 LSB/deg/s)
   Wire.endTransmission();
 }
 
@@ -50,11 +52,10 @@ acceleration = acccelData/8192
 gyro = gyroData/65.5
 
 
-pitch angle = rotation around the x-axis
-roll angle = rotation around the y-axis
+
 */
 
-void read_mpu6050(double &aX, double &aY, double &aZ, double &gX, double &gY, double &gZ){
+void read_mpu6050(){
   Wire.beginTransmission(0x68);
   Wire.write(0x3B); //starting address for accelerometer's X-axis data
   Wire.endTransmission();
@@ -70,43 +71,72 @@ void read_mpu6050(double &aX, double &aY, double &aZ, double &gX, double &gY, do
   int16_t gy_y = (Wire.read() << 8 | Wire.read());
   int16_t gy_z = (Wire.read() << 8 | Wire.read());
 
-  //Convert from acceleration and gyro values of LSB to m/s^2 = g or deg/s
-  aX = accLSB_x/4096.0 - 0.05; //adjusted values during calibration to all equal 1 when flat on its plane
-  aY = accLSB_y/4096.0 + 0.01;
-  aZ = accLSB_z/4096.0 + 0.13;
+  //Convert from acceleration and gyro values of LSB to m/s^2 = g or deg/s+
+  aX = accLSB_x/16374.0 - 0.05; //adjusted values during calibration to all equal 1 when flat on its plane
+  aY = accLSB_y/16374.0  + 0.01;
+  aZ = accLSB_z/16374.0  + 0.13;
   
-  rollRate = gy_x/65.5;
-  pitchRate = gy_y/65.5;
+  rollRate = gy_x/131.0;
+  pitchRate = gy_y/131.0;
   //yawRate = gy_z/65.5;
 
   //Calculate Roll and Pitch Angle in radians
-  rollAngle = atan(aY/sqrt(aX*aX+aZ*aZ));
+  x_horizontal_angle = atan(aY/sqrt(aX*aX+aZ*aZ));
   pitchAngle = -atan(aX/sqrt(aY*aY + aZ*aZ));
 
   //Convert Roll & Pitch Angle to degrees
-  rollAngle *= 180/3.1415;
+  x_horizontal_angle *= 180/3.1415;
   pitchAngle *= 180/3.1415;
 
 
 
-  /*print out aX, aY, aZ to check for calibration
-  Serial.print("aX = ");
-  Serial.print(aX);
-  Serial.print(" | aY = ");
-  Serial.print(aY);
-  Serial.print(" | aZ = ");
-  Serial.println(aZ);
-  */
+  // //print out aX, aY, aZ to check for calibration
+  // Serial.print("aX = ");
+  // Serial.print(aX);
+  // Serial.print(" | aY = ");
+  // Serial.print(aY);
+  // Serial.print(" | aZ = ");
+  // Serial.println(aZ);
+  
+  // //convert to servo degrees, from 0 to 180
+  // x_horizontal_angle += 90; 
+  // pitchAngle += 90;
 
   //print out Pitch and Roll Angle
-  Serial.print("Roll Angle = ");
-  Serial.print(rollAngle);
-  Serial.print(" | Pitch Angle = ");
+  Serial.print("X Angle: "); //left and right
+  Serial.print(x_horizontal_angle);
+  Serial.print(" | Y Angle = "); //into and out of the page
   Serial.println(pitchAngle);
 
 }
 
-void compareWithInitial(double aX, double aY, double aZ, double gX, double gY, double gZ){}
+void adjust_motor(){
+  double servo_angle;
+  if(aX < 0 && aY > 0) { 
+    servo_angle = offset_degrees - x_horizontal_angle + 180;
+  } else if (aX < 0 && aY < 0) { 
+    servo_angle = 180 - offset_degrees - x_horizontal_angle;
+  } else {
+    servo_angle  = offset_degrees + x_horizontal_angle;
+  }
+
+  Serial.print("Servo Angle = ");
+  Serial.println(servo_angle);
+  
+  servo.write(servo_angle); //centers @ 0 degrees pointing up
+}
+
+void check_offset(){
+  int input = 0;
+  if (Serial.available() > 0){
+    offset_degrees= Serial.parseInt();
+    Serial.read(); //clear buffer
+  }
+
+  Serial.print("Offset: ");
+  Serial.println(offset_degrees);
+ 
+}
 
 void setup() {
   Wire.begin(); //sets up I2C, allowing it to communicate with the arduino
@@ -117,13 +147,13 @@ void setup() {
   servo.write(0); //reset servor to 0 degrees
   delay(1000);
 
-
 }
 
 void loop() {
   //measures and prints out position every 100ms
-  double accelX, accelY, accelZ, gyroX, gyroY, gyroZ;
-  read_mpu6050(accelX, accelY, accelZ, gyroX, gyroY, gyroZ);
+  read_mpu6050();
+  adjust_motor();
+  check_offset();
   delay(loop_interval_length);
 
 
