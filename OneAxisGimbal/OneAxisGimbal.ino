@@ -3,7 +3,7 @@
 
 
 Servo servo; //creates a servo object
-int loop_interval_length = 200; //in ms
+int loop_interval_length = 50; //in ms
 double aX, aY, aZ;
 double angle_from_x_horizontal, pitchAngle, yawAngle = 0;
 int offset_degrees = 90;  //0 the horizontal, 90 is upward
@@ -11,7 +11,7 @@ int offset_degrees = 90;  //0 the horizontal, 90 is upward
 
 void initialize_mpu6050(){
   //turn on mpu6050
-  Wire.beginTransmission(0x68); //call Wire library to link arduino with mpu (0x68 is the address of the mpu6050)
+  Wire.beginTransmission(0x68); //call Wire library to lin arduinok with mpu (0x68 is the address of the mpu6050)
   Wire.write(0x6B); //selects power management register of the mpu so I can configure it
   Wire.write(0x00); //turns on the mpu6050
   Wire.endTransmission(); //stops communication with current register & sends out the .write commands
@@ -81,7 +81,7 @@ void read_mpu6050(){
 
   //Calculate Roll and Pitch Angle in radians
   angle_from_x_horizontal = atan(aY/sqrt(aX*aX+aZ*aZ)); //aka roll angle
-  pitchAngle = -atan(aX/sqrt(aY*aY + aZ*aZ));
+  pitchAngle = atan(aX/sqrt(aY*aY + aZ*aZ));
 
   //Convert Roll & Pitch Angle to degrees
   angle_from_x_horizontal *= 180/3.1415;
@@ -100,8 +100,13 @@ void read_mpu6050(){
   Serial.print(aY);
   Serial.print(" | Z = ");
   Serial.println(aZ);
+  Serial.print("Gyroscope: X = ");
+  Serial.print(rollRate);
+  Serial.print(" | Y = ");
+  Serial.print(pitchRate);
+  Serial.print(" | Z = ");
+  Serial.println(yawRate);
 
-  // print_position();
   
 
 
@@ -115,25 +120,6 @@ void read_mpu6050(){
 
 }
 
-// void print_position(){
-//   static double velX = 0, velY = 0, velZ = 0, posX = 0, posY = 0, posZ = 0;
-//   velX += (aX *9.81) * (loop_interval_length/1000.0); //velocity = acceleration * time interval + C
-//   velY += (aY *9.81) * (loop_interval_length/1000.0);
-//   velZ += (aZ *9.81) * (loop_interval_length/1000);
-
-//   posX += velX * (loop_interval_length/1000.0); //position = velocity*time interval + C
-//   posY += velY * (loop_interval_length/1000.0);
-//   posZ += velZ * (loop_interval_length/1000.0);
-
-//   Serial.print("Position: X = ");
-//   Serial.print(posX);
-//   Serial.print("  |  Y =  ");
-//   Serial.print(posY);
-//   Serial.print("  | Z  ");
-//   Serial.println(posZ);
-
-// }
-
 void adjust_motor(){ 
   double mpu_angle;
   if(aX < 0 && aY > 0) { 
@@ -146,8 +132,6 @@ void adjust_motor(){
 
   Serial.print("MPU Angle = "); 
   Serial.println(angle_from_x_horizontal + 90);
-  // Serial.print("  |  MPU Angle in Relation to Offset = "); 
-  // Serial.println( offset_degrees - mpu_angle);
   
   servo.write(mpu_angle); //centers @ 0 degrees pointing up
 }
