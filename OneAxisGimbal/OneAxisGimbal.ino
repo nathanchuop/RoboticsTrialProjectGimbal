@@ -3,7 +3,7 @@
 
 
 Servo servo; //creates a servo object
-int loop_interval_length = 100; //in ms
+int loop_interval_length = 50; //in ms
 double aX, aY, aZ;
 double angle_from_x_horizontal, pitchAngle, yawAngle = 0;
 int offset_degrees = 90;  //0 the horizontal, 90 is upward
@@ -111,10 +111,10 @@ void read_mpu6050(){
 
 
   //print out Pitch and Roll Angle
-  Serial.print("X Angle: "); //left and righ the page
-  Serial.println(pitchAngle);
+  Serial.print("X Angle: "); //left and right
   Serial.print(angle_from_x_horizontal);
-  Serial.print(" | Y Angle = "); //into and out of
+  Serial.print(" | Y Angle = "); //into and out of the page
+  Serial.println(pitchAngle);
   // Serial.print(" | Z Angle = "); //up and down
   // Serial.println(yawAngle);
 
@@ -136,12 +136,16 @@ void adjust_motor(){
   servo.write(mpu_angle); //centers @ 0 degrees pointing up
 }
 
+
+
+
 void check_offset(){
   int input = 0;
   if (Serial.available() > 0){
     offset_degrees= Serial.parseInt();
     Serial.read(); //clear buffer
   }
+
 
   Serial.print("Offset: ");
   Serial.println(offset_degrees);
@@ -168,12 +172,3 @@ void loop() {
 
 
 }
-
-
-
-
-
-
-
-
-
